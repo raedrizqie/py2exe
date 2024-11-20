@@ -41,6 +41,7 @@ True
 >>>
 
 """
+import os
 import sys
 import zipimport
 
@@ -56,9 +57,12 @@ class ZipExtensionImporter(zipimport.zipimporter):
     def find_loader(self, fullname, path=None):
         """We need to override this method for Python 3.x.
         """
-        loader, portions = super().find_loader(fullname, path)
+        if sys.version_info >= (3, 12):
+            loader, portions = super().find_spec(self, fullname, path)
+        else:
+            loader, portions = super().find_loader(fullname, path)
         if loader is None:
-            pathname = fullname.replace(".", "\\")
+            pathname = fullname.replace(".", os.path.sep)
             for s in self._suffixes:
                 if (pathname + s) in self._files:
                     return self, []
@@ -66,10 +70,13 @@ class ZipExtensionImporter(zipimport.zipimporter):
         return loader, portions
 
     def find_module(self, fullname, path=None):
-        result = zipimport.zipimporter.find_module(self, fullname, path)
+        if sys.version_info >= (3, 12):
+            result = zipimport.zipimporter.find_spec(self, fullname, path)
+        else:
+            result = zipimport.zipimporter.find_module(self, fullname, path)
         if result:
             return result
-        fullname = fullname.replace(".", "\\")
+        fullname = fullname.replace(".", os.path.sep)
         for s in self._suffixes:
             if (fullname + s) in self._files:
                 return self
@@ -104,7 +111,7 @@ class ZipExtensionImporter(zipimport.zipimporter):
             else:
                 # name of initfunction
                 initname = "init" + fullname.split(".")[-1]
-            filename = fullname.replace(".", "\\")
+            filename = fullname.replace(".", os.path.sep)
             if filename in ("pywintypes", "pythoncom"):
                 filename = filename + "%d%d" % sys.version_info[:2]
                 suffixes = ('.dll',)
@@ -120,7 +127,7 @@ class ZipExtensionImporter(zipimport.zipimporter):
                     mod = _memimporter.import_module(fullname, path,
                                                      initname,
                                                      self.get_data, spec)
-                    mod.__file__ = "%s\\%s" % (self.archive, path)
+                    mod.__file__ = "%s%s%s" % (self.archive, os.path.sep, path)
                     mod.__loader__ = self
                     mod.__memimported__ = True
                     sys.modules[fullname] = mod
@@ -137,7 +144,7 @@ class ZipExtensionImporter(zipimport.zipimporter):
                 verbose = _memimporter.get_verbose_flag()
                 fullname = spec.name
 
-                filename = fullname.replace(".", "\\")
+                filename = fullname.replace(".", os.path.sep)
                 suffixes = self._suffixes
                 initname = "PyInit_" + fullname.split(".")[-1]
 
@@ -150,7 +157,7 @@ class ZipExtensionImporter(zipimport.zipimporter):
                         mod = _memimporter.import_module(fullname, path,
                                                         initname,
                                                         self.get_data, spec)
-                        mod.__file__ = "%s\\%s" % (self.archive, path)
+                        mod.__file__ = "%s%s%s" % (self.archive, os.path.sep, path)
                         mod.__loader__ = self
                         mod.__memimported__ = True
                         if verbose:
