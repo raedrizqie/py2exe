@@ -70,7 +70,7 @@ void SystemError(int error, char *msg)
 	} else
 		Buffer[0] = '\0';
 	n = lstrlenA(Buffer);
-	_snprintf(Buffer+n, sizeof(Buffer)-n, msg);
+	_snprintf(Buffer+n, sizeof(Buffer)-n, "%s", msg);
 	MessageBoxA(GetFocus(), Buffer, NULL, MB_OK | MB_ICONSTOP);
 }
 

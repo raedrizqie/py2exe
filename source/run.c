@@ -29,7 +29,7 @@ void SystemError(int error, char *msg)
 	char Buffer[1024];
 
 	if (msg)
-		fprintf(stderr, msg);
+		fprintf(stderr, "%s", msg);
 	if (error) {
 		LPVOID lpMsgBuf;
 		FormatMessageA(
@@ -44,7 +44,7 @@ void SystemError(int error, char *msg)
 			);
 		strncpy(Buffer, lpMsgBuf, sizeof(Buffer)-1);
 		LocalFree(lpMsgBuf);
-		fprintf(stderr, Buffer);
+		fprintf(stderr, "%s", Buffer);
 	}
 }
 
