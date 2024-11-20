@@ -11,6 +11,26 @@ static char module_doc[] =
 #include "MyLoadLibrary.h"
 #include "actctx.h"
 
+/* Work arround not being able to use _Py_PackageContext in Python 3.12+. */
+#if (PY_VERSION_HEX >= 0x030C0000)
+#include <internal/pycore_runtime.h>
+
+const char*
+_PyImport_SwapPackageContext(const char* newcontext)
+{
+	#ifndef HAVE_THREAD_LOCAL
+	PyThread_acquire_lock(_PyRuntime.imports.extensions.mutex, WAIT_LOCK);
+	#endif
+	const char* oldcontext = (_PyRuntime.imports.pkgcontext);
+	(_PyRuntime.imports.pkgcontext) = newcontext;
+	#ifndef HAVE_THREAD_LOCAL
+	PyThread_release_lock(_PyRuntime.imports.extensions.mutex);
+	#endif
+
+	return oldcontext;
+}
+#endif
+
 #ifndef STANDALONE
 #include "Python-dynload.h"
 #endif
@@ -55,7 +75,6 @@ int do_import(FARPROC init_func, char *modname, PyObject *spec, PyObject **mod)
 	PyObject* (*p)(void);
 	PyObject *m = NULL;
 	struct PyModuleDef *def;
-	char *oldcontext;
 	PyObject *name = PyUnicode_FromString(modname);
 
 	if (name == NULL)
@@ -79,13 +98,23 @@ int do_import(FARPROC init_func, char *modname, PyObject *spec, PyObject **mod)
 		return -1;
 	}
 
-        oldcontext = _Py_PackageContext;
+#if (PY_VERSION_HEX >= 0x030C0000)
+	const char *oldcontext;
+	oldcontext = _PyImport_SwapPackageContext(modname);
+#else
+	char *oldcontext;
+	oldcontext = _Py_PackageContext;
 	_Py_PackageContext = modname;
+#endif
 
 	p = (PyObject*(*)(void))init_func;
 	m = (*p)();
 
+#if (PY_VERSION_HEX >= 0x030C0000)
+	_PyImport_SwapPackageContext(oldcontext);
+#else
 	_Py_PackageContext = oldcontext;
+#endif
 
 
 	if (PyErr_Occurred()) {
@@ -264,7 +293,11 @@ import_module(PyObject *self, PyObject *args)
 static PyObject *
 get_verbose_flag(PyObject *self, PyObject *args)
 {
+#if (PY_VERSION_HEX >= 0x030C0000)
+	return PyLong_FromLong(_Py_GetConfig()->verbose);
+#else
 	return PyLong_FromLong(Py_VerboseFlag);
+#endif
 }
 
 static PyMethodDef methods[] = {
